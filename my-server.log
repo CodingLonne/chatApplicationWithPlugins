@@ -1,0 +1,4 @@
+Sun Sep 27 15:21:38 CEST 2026 | /127.0.0.1:54062 | AUTH	Bob	[password redacted]
+Sun Sep 27 15:21:40 CEST 2026 | /127.0.0.1:54064 | AUTH	Alice	[password redacted]
+Sun Sep 27 15:21:42 CEST 2026 | /127.0.0.1:54062 | CHAT	blue	Hello
+Sun Sep 27 15:21:46 CEST 2026 | /127.0.0.1:54064 | CHAT	red	Hello
