@@ -24,7 +24,7 @@ public class Connection {
         if (wire == null) {
             return null;
         }
-        String message = Crypto.decrypt(wire);
+        String message = wire;
         log.record(socket.getRemoteSocketAddress().toString(), message);
         return message;
     }
@@ -33,7 +33,7 @@ public class Connection {
         if (message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) {
             throw new IOException("A protocol frame must be a single line.");
         }
-        output.write(Crypto.encrypt(message));
+        output.write(message);
         output.newLine();
         output.flush();
     }

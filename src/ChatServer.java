@@ -1,6 +1,9 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ChatServer {
     private static final String PASSWORD = "spl-chat";
@@ -61,6 +64,7 @@ public class ChatServer {
             connection = new Connection(socket, log);
         }
 
+        @Override
         public void run() {
             try {
                 String first = connection.receive();
@@ -68,29 +72,49 @@ public class ChatServer {
                     return;
                 }
                 String[] auth = first.split("\t", -1);
-                if (auth.length != 3 || !"AUTH".equals(auth[0])
-                        || !validLabel(auth[1]) || !PASSWORD.equals(auth[2])) {
-                    connection.send("ERROR\tAuthentication failed");
-                    return;
-                }
+                // if (auth.length != 3 || !"AUTH".equals(auth[0])
+                //         || !validLabel(auth[1]) || !PASSWORD.equals(auth[2])) {
+                //     connection.send("ERROR\tAuthentication failed");
+                //     return;
+                // }
                 String name = auth[1];
                 // Make acknowledgement and registration atomic with broadcasts.
                 synchronized (ChatServer.this) {
-                    connection.send("OK\tAuthenticated");
+                    // connection.send("OK\tAuthenticated");
                     add(this);
                 }
                 String message;
                 while ((message = connection.receive()) != null) {
+                    for (ServerPlugin plugin : Launcher.serverPlugins) {
+                        message = plugin.modifyReceiveMessage(message);
+                    }
                     if ("QUIT".equals(message)) {
                         break;
                     }
                     String[] fields = message.split("\t", 3);
-                    if (fields.length != 3 || !"CHAT".equals(fields[0])
-                            || !validLabel(fields[1]) || fields[2].length() == 0) {
-                        connection.send("ERROR\tExpected CHAT, color and nonempty text");
+                    //receiving: CHAT pluginargs* text
+                    //sending: CHAT name pluginargs* text
+                    if (fields.length != 2 + Launcher.serverPlugins.stream().mapToInt(ServerPlugin::getReceivedMessageArgsCount).sum()) {
+                        List<String> expectedArgs = List.of("CHAT");
+                        expectedArgs.addAll(Launcher.serverPlugins.stream()
+                            .flatMap(plugin -> Arrays.asList(plugin.expectedVerifiedReceivedMessageArgs()).stream())
+                            .toList());
+                        connection.send("ERROR\tExpected " + expectedArgs.stream().collect(Collectors.joining(", ")) + " and nonempty text");
                         continue;
                     }
-                    broadcast("CHAT\t" + name + "\t" + fields[1] + "\t" + fields[2]);
+                    // inspect received arguments and return error to client if applicable
+                    String[] pluginReceivedArgs = Arrays.copyOfRange(fields, 1, fields.length-1);
+                    String potentialErrorMessage = pluginMessageArgsVerifying(pluginReceivedArgs);
+                    if (potentialErrorMessage != null) {
+                        connection.send("ERROR\t" + potentialErrorMessage);
+                        continue;
+                    }
+                    // process received arguments
+                    message = "CHAT\t" + name + String.join("\t", pluginMessageArgsSending(pluginReceivedArgs)) + '\t' + fields[fields.length-1];
+                    for (ServerPlugin plugin : Launcher.serverPlugins) {
+                        message = plugin.modifySendMessage(message);
+                    }
+                    broadcast(message);
                 }
             } catch (IOException e) {
                 System.err.println("Connection ended: " + e.getMessage());
@@ -100,6 +124,35 @@ public class ChatServer {
             }
         }
     }
+
+    private String[] pluginMessageArgsSending(String[] pluginArgsReceived) {
+        int inputIndex = 0;
+        int outputIndex = 0;
+        int sendingArgumentsCount = Launcher.serverPlugins.stream().mapToInt(ServerPlugin::getSendingMessageArgsCount).sum();
+        String[] sendingArguments = new String[sendingArgumentsCount];
+        for (ServerPlugin plugin : Launcher.serverPlugins) {
+            String[] pluginReceivedArgs = Arrays.copyOfRange(pluginArgsReceived, inputIndex, inputIndex+plugin.getReceivedMessageArgsCount());
+            inputIndex += plugin.getReceivedMessageArgsCount();
+            for (String arg : plugin.getSendingMessageArgs(pluginReceivedArgs)) {
+                sendingArguments[outputIndex] = arg;
+                outputIndex += 1;
+            }
+        }
+        return sendingArguments;
+    }
+
+    private String pluginMessageArgsVerifying(String[] pluginArgsReceived) {
+        int index = 0;
+        String errorMsg = null; // if all plugins have valid arguments this stays null, otherwise error message will be stored here
+        for (ServerPlugin plugin : Launcher.serverPlugins) {
+            String[] pluginReceivedArgs = Arrays.copyOfRange(pluginArgsReceived, index, index+plugin.getReceivedMessageArgsCount());
+            index += plugin.getReceivedMessageArgsCount();
+            errorMsg = plugin.verifyReceivedMessageArgs(pluginReceivedArgs);
+            if (errorMsg != null) break;
+        } 
+        return errorMsg;
+    }
+
 
     public void serve(int port) throws IOException {
         ServerSocket listener = new ServerSocket(port);

@@ -16,11 +16,21 @@ public final class Crypto {
         return result.toString();
     }
 
-    public static String encrypt(String text) {
-        return new StringBuffer(rot13(text)).reverse().toString();
+    public static String encrypt(String text, String... type) {
+        if (type.equals("rot13")){
+            return new StringBuffer(rot13(text)).toString();
+        } else if (type.equals("reversal")){
+            return new StringBuffer(text).reverse().toString();
+        }
+        return new StringBuffer(rot13(text)).reverse().toString(); 
     }
 
-    public static String decrypt(String text) {
+    public static String decrypt(String text, String... type) {
+        if (type.equals("rot13")){
+            return new StringBuffer(rot13(text)).toString();
+        } else if (type.equals("reversal")){
+            return new StringBuffer(text).reverse().toString();
+        }
         return rot13(new StringBuffer(text).reverse().toString());
     }
 }

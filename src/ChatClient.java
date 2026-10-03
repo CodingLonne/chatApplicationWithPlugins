@@ -3,6 +3,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class ChatClient {
     private static class Receiver extends Thread {
@@ -13,9 +15,10 @@ public class ChatClient {
             setDaemon(true);
         }
 
+        @Override
         public void run() {
             try {
-                String message;
+                String message; //TODO
                 while ((message = connection.receive()) != null) {
                     String[] fields = message.split("\t", 4);
                     if (fields.length == 4 && "CHAT".equals(fields[0])) {
@@ -33,40 +36,30 @@ public class ChatClient {
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        if (args.length < 3 || args.length > 4 || !ChatServer.validLabel(args[2])) {
-            System.out.println("Usage: java ChatClient host port name [color]");
-            System.out.println("Name/color: 1-24 letters, digits, underscores or hyphens.");
-            return;
-        }
-        String color = args.length == 4 ? args[3] : "black";
-        if (!ChatServer.validLabel(color)) {
-            System.out.println("Invalid color label.");
-            return;
-        }
+    public static void start_client(String host, int port, String userName) throws IOException, InterruptedException {
         BufferedReader keyboard = new BufferedReader(new InputStreamReader(System.in, "UTF-8"));
-        System.out.print("Password: ");
-        System.out.flush();
-        String password = keyboard.readLine();
-        if (password == null) {
-            return;
-        }
-        File logFile = File.createTempFile("client-" + args[2] + "-", ".log", new File("."));
+        // System.out.print("Password: ");
+        // System.out.flush();
+        // String password = keyboard.readLine();
+        // if (password == null) {
+        //     return;
+        // }
+        File logFile = File.createTempFile("client-" + userName + "-", ".log", new File("."));
         MessageLog log = new MessageLog(logFile.getPath());
         Socket socket = null;
         Connection connection = null;
         Receiver receiver = null;
         try {
-            socket = new Socket(args[0], Integer.parseInt(args[1]));
+            socket = new Socket(host, port);
             connection = new Connection(socket, log);
             System.out.println("Log: " + logFile.getAbsolutePath());
-            connection.send("AUTH\t" + args[2] + "\t" + password);
-            String answer = connection.receive();
-            if (!"OK\tAuthenticated".equals(answer)) {
-                System.out.println("Authentication failed or server disconnected.");
-                return;
-            }
-            System.out.println("Connected. Type messages, /color blue, or /quit.");
+            // connection.send("AUTH\t" + userName + "\t" + password);
+            // String answer = connection.receive();
+            // if (!"OK\tAuthenticated".equals(answer)) {
+            //     System.out.println("Authentication failed or server disconnected.");
+            //     return;
+            // }
+            // System.out.println("Connected. Type messages, /color blue, or /quit.");
             receiver = new Receiver(connection);
             receiver.start();
             String line;
@@ -74,19 +67,31 @@ public class ChatClient {
                 if (!receiver.isAlive()) {
                     break;
                 }
+                // decode beforehand
+                for (ClientPlugin plugin : Launcher.clientPlugins) {
+                    line = plugin.modifyReceiveMessage(line);
+                }
+                // check for commands, otherwise send
                 if ("/quit".equals(line)) {
                     connection.send("QUIT");
                     break;
-                } else if (line.startsWith("/color ")) {
-                    String candidate = line.substring(7).trim();
-                    if (ChatServer.validLabel(candidate)) {
-                        color = candidate;
-                        System.out.println("Outgoing color: " + color);
-                    } else {
-                        System.out.println("Invalid color label.");
+                } else if (line.charAt(0) == '/') {
+                    String commandString = line;
+                    boolean pluginCommand = Launcher.clientPlugins.stream().anyMatch(plugin -> plugin.executeCommand(commandString));
+                    if (!pluginCommand) {
+                        System.out.println("Unknown command");
                     }
+                    break;
                 } else if (line.length() > 0) {
-                    connection.send("CHAT\t" + color + "\t" + line);
+                    String message = "CHAT\t" + 
+                        Launcher.clientPlugins.stream()
+                            .flatMap(plugin -> Arrays.asList(plugin.getMessageArguments()).stream())
+                            .collect(Collectors.joining("\t")) + line;
+                    
+                    for (ClientPlugin plugin : Launcher.clientPlugins) {
+                        message = plugin.modifySendMessage(message);
+                    }
+                    connection.send(message);
                 }
             }
         } finally {
