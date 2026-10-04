@@ -11,7 +11,7 @@ public class ServerAuthPlugin implements ServerPlugin {
     }
 
     @Override
-    public void receiveMessageEvent(Connection connection, String message) {
+    public void initialize(Connection connection, String message) {
         String[] auth = message.split("\t", -1);
         if (!authenticatedUsers.contains(auth[1])){
             try {

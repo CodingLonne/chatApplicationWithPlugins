@@ -25,7 +25,7 @@ public class Connection {
             return null;
         }
         String message = wire;
-        log.record(socket.getRemoteSocketAddress().toString(), message);
+        log.record(socket.getRemoteSocketAddress().toString(), message); //TODO: remove if we want this as a plugin
         return message;
     }
 
