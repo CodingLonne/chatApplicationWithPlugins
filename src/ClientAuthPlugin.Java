@@ -1,11 +1,22 @@
 public class ClientAuthPlugin implements ClientPlugin {
     private boolean authenticated;
     private String userName;
+    private String password;
+
+    @Override
+    public void initialize(Connection connection){
+        connection.send("AUTH\t" + userName + "\t" + password);
+    }
 
     @Override
     public void setNeededArgs(String host, int port, String name, String[] args) {
         userName = name;
         System.out.println("password:");
+        System.out.flush();
+        String password = keyboard.readLine();
+        if (password == null) {
+            return;
+        }
     }
 
     @Override
