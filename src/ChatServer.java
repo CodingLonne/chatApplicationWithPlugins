@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ChatServer {
-    private static final String PASSWORD = "spl-chat";
     private Session[] clients = new Session[8];
     private int count;
     private final MessageLog log;
@@ -72,17 +71,18 @@ public class ChatServer {
                     return;
                 }
                 String[] auth = first.split("\t", -1);
-                // if (auth.length != 3 || !"AUTH".equals(auth[0])
-                //         || !validLabel(auth[1]) || !PASSWORD.equals(auth[2])) {
-                //     connection.send("ERROR\tAuthentication failed");
-                //     return;
-                // }
-                String name = auth[1];
+                String name = auth[1]; // FLAG: let's try setting this to 0 (was 1)
                 // Make acknowledgement and registration atomic with broadcasts.
                 synchronized (ChatServer.this) {
-                    // connection.send("OK\tAuthenticated");
+                    connection.send("Connected.");
                     add(this);
                 }
+
+                String second = connection.receive();
+                for (ServerPlugin plugin : Launcher.serverPlugins) {
+                    plugin.initialize(connection, second);
+                }
+                
                 String message;
                 while ((message = connection.receive()) != null) {
                     for (ServerPlugin plugin : Launcher.serverPlugins) {

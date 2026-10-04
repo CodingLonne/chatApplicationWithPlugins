@@ -12,10 +12,18 @@ public class Launcher {
     public static void main(String[] args) throws IOException, InterruptedException {
         // java Launcher client host port name [color]
         // java Launcher server [port] [log-file]
-        clientPlugins = List.of(/*color, encryptions, auth, logging */);
-        serverPlugins = List.of();
+        clientPlugins = List.of(new ClientAuthPlugin()/*color, encryptions, auth, logging */);
+        serverPlugins = List.of(new ServerAuthPlugin());
         
+        if (args.length == 0){
+            System.out.println("Usage: java Launcher.java [client/server]");
+            return;
+        }
         if (args[0].equals("client")) {
+            if (args.length < 3){
+                System.out.println("Usage: java Launcher.java client localhost port username [color]");
+                return;
+            }
             String host = args[1];
             var port = Integer.parseInt(args[2]);
             String userName = args[3];
@@ -25,10 +33,10 @@ public class Launcher {
         } else if (args[0].equals("server")) {
             //server
             if (args.length > 3) {
-                System.out.println("Usage: java ChatServer [port] [log-file]");
+                System.out.println("Usage: java Launcher.java server [port] [log-file]");
                 return;
             }
-            int port = args.length > 0 ? Integer.parseInt(args[1]) : 5000;
+            int port = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
             MessageLog log = new MessageLog(args.length > 1 ? args[2] : "server.log");
             try {
                 new ChatServer(log).serve(port);

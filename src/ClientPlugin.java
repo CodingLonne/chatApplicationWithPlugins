@@ -1,4 +1,7 @@
 public interface ClientPlugin {
+    // Plugins can use this method to tag on to behaviour in the initial set-up of the client-server connection
+    default void initialize(Connection connection){return;}
+
     //Plugins can indicate how many arguments they claim (the color plugin claims 1)
     default int getArgCount() {return 0;}
     default void setNeededArgs(String host, int port, String name, String[] args) {}

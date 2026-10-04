@@ -38,12 +38,6 @@ public class ChatClient {
 
     public static void start_client(String host, int port, String userName) throws IOException, InterruptedException {
         BufferedReader keyboard = new BufferedReader(new InputStreamReader(System.in, "UTF-8"));
-        // System.out.print("Password: ");
-        // System.out.flush();
-        // String password = keyboard.readLine();
-        // if (password == null) {
-        //     return;
-        // }
         File logFile = File.createTempFile("client-" + userName + "-", ".log", new File("."));
         MessageLog log = new MessageLog(logFile.getPath());
         Socket socket = null;
@@ -53,13 +47,12 @@ public class ChatClient {
             socket = new Socket(host, port);
             connection = new Connection(socket, log);
             System.out.println("Log: " + logFile.getAbsolutePath());
-            // connection.send("AUTH\t" + userName + "\t" + password);
-            // String answer = connection.receive();
-            // if (!"OK\tAuthenticated".equals(answer)) {
-            //     System.out.println("Authentication failed or server disconnected.");
-            //     return;
-            // }
-            // System.out.println("Connected. Type messages, /color blue, or /quit.");
+            connection.send("CON\t" + userName);
+
+            for (ClientPlugin plugin : Launcher.clientPlugins) {
+                plugin.initialize(connection);
+            }
+
             receiver = new Receiver(connection);
             receiver.start();
             String line;
@@ -75,7 +68,7 @@ public class ChatClient {
                 if ("/quit".equals(line)) {
                     connection.send("QUIT");
                     break;
-                } else if (line.charAt(0) == '/') {
+                } else if (line.length() > 0 && line.charAt(0) == '/') {
                     String commandString = line;
                     boolean pluginCommand = Launcher.clientPlugins.stream().anyMatch(plugin -> plugin.executeCommand(commandString));
                     if (!pluginCommand) {

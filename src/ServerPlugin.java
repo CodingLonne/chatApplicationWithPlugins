@@ -1,4 +1,7 @@
 public interface ServerPlugin {
+    //Plugins can set-up after initial call from client on connection containing message
+    default void initialize(Connection connection, String message) {return;}
+
     //Plugins can indicate how many terminal arguments they claim (the color plugin claims 1)
     default int getArgCount() {return 0;}
     default void setNeededArgs(String[] args) {}
