@@ -71,16 +71,31 @@ public class ChatServer {
                     return;
                 }
                 String[] auth = first.split("\t", -1);
+                boolean loggedIn = false;
+                for (ServerPlugin plugin : Launcher.serverPlugins) {
+                    if (plugin.overrideUserConnectEvent()) {
+                        loggedIn = plugin.userConnectEvent(connection, first);
+                        if (loggedIn) break;
+                    }
+                }
+                    System.out.println(first);
+                if (!Launcher.serverPlugins.stream().anyMatch(ServerPlugin::overrideUserConnectEvent)) {
+                    System.out.println(auth);
+                    if (auth.length != 2 || !"CON".equals(auth[0])
+                            || !validLabel(auth[1])) {
+                        connection.send("ERROR\tAuthenticationless connection Failed");
+                        loggedIn = false;
+                    } else loggedIn = true;
+                }
+                if (!loggedIn) {
+                    System.out.println("failed login");
+                    return;
+                }
                 String name = auth[1]; // FLAG: let's try setting this to 0 (was 1)
                 // Make acknowledgement and registration atomic with broadcasts.
                 synchronized (ChatServer.this) {
                     connection.send("Connected.");
                     add(this);
-                }
-
-                String second = connection.receive();
-                for (ServerPlugin plugin : Launcher.serverPlugins) {
-                    plugin.initialize(connection, second);
                 }
                 
                 String message;
@@ -91,10 +106,11 @@ public class ChatServer {
                     if ("QUIT".equals(message)) {
                         break;
                     }
-                    String[] fields = message.split("\t", 3);
                     //receiving: CHAT pluginargs* text
                     //sending: CHAT name pluginargs* text
-                    if (fields.length != 2 + Launcher.serverPlugins.stream().mapToInt(ServerPlugin::getReceivedMessageArgsCount).sum()) {
+                    int expectedFieldCount = 2 + Launcher.serverPlugins.stream().mapToInt(ServerPlugin::getReceivedMessageArgsCount).sum();
+                    String[] fields = message.split("\t", expectedFieldCount);
+                    if (fields.length != expectedFieldCount) {
                         List<String> expectedArgs = List.of("CHAT");
                         expectedArgs.addAll(Launcher.serverPlugins.stream()
                             .flatMap(plugin -> Arrays.asList(plugin.expectedVerifiedReceivedMessageArgs()).stream())
@@ -110,7 +126,7 @@ public class ChatServer {
                         continue;
                     }
                     // process received arguments
-                    message = "CHAT\t" + name + String.join("\t", pluginMessageArgsSending(pluginReceivedArgs)) + '\t' + fields[fields.length-1];
+                    message = "CHAT\t" + name + Arrays.stream(pluginMessageArgsSending(pluginReceivedArgs)).map(s -> "\t" + s).collect(Collectors.joining()) + '\t' + fields[fields.length-1];
                     for (ServerPlugin plugin : Launcher.serverPlugins) {
                         message = plugin.modifySendMessage(message);
                     }

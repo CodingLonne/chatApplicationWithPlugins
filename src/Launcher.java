@@ -12,8 +12,8 @@ public class Launcher {
     public static void main(String[] args) throws IOException, InterruptedException {
         // java Launcher client host port name [color]
         // java Launcher server [port] [log-file]
-        clientPlugins = List.of(new ClientAuthPlugin()/*color, encryptions, auth, logging */);
-        serverPlugins = List.of(new ServerAuthPlugin());
+        clientPlugins = List.of(/*new ClientAuthPlugin()/*color, encryptions, auth, logging */);
+        serverPlugins = List.of(/*new ServerAuthPlugin()*/);
         
         if (args.length == 0){
             System.out.println("Usage: java Launcher.java [client/server]");
@@ -48,12 +48,12 @@ public class Launcher {
 
     private static void passClientPluginArgs(String host, int port, String name, String[] args) {
         divideClientPluginArgs(
-            Arrays.copyOfRange(args, 4, args.length), 
+            args, 3,
             p -> p.getArgCount(), 
             (p, args2) -> p.setNeededArgs(host, port, name, args2));
     }
 
-    public static Map<ClientPlugin, String[]> divideClientPluginArgs(String[] args, Function<ServerPlugin, Integer> pluginToArgCount) {
+    public static Map<ClientPlugin, String[]> divideClientPluginArgs(String[] args, int startIndex, Function<ServerPlugin, Integer> pluginToArgCount) {
         Map<ClientPlugin, String[]> correspondanceMap = new HashMap<>(Launcher.clientPlugins.size());
         int index = 3;
         for (ClientPlugin plugin : Launcher.clientPlugins) {
@@ -64,8 +64,8 @@ public class Launcher {
         return correspondanceMap;
     }
 
-    public static void divideClientPluginArgs(String[] args, Function<ServerPlugin, Integer> pluginToArgCount, BiConsumer<ClientPlugin, String[]> doingFunction) {
-        int index = 3;
+    public static void divideClientPluginArgs(String[] args, int startIndex, Function<ServerPlugin, Integer> pluginToArgCount, BiConsumer<ClientPlugin, String[]> doingFunction) {
+        int index = startIndex;
         for (ClientPlugin plugin : Launcher.clientPlugins) {
             int num_args_plugin = plugin.getArgCount();
             doingFunction.accept(plugin, Arrays.copyOfRange(args, index, index+num_args_plugin));
@@ -73,9 +73,9 @@ public class Launcher {
         }
     }
 
-    public static Map<ServerPlugin, String[]> divideServerPluginArgs(String[] args, Function<ServerPlugin, Integer> pluginToArgCount) {
+    public static Map<ServerPlugin, String[]> divideServerPluginArgs(String[] args, int startIndex, Function<ServerPlugin, Integer> pluginToArgCount) {
         Map<ServerPlugin, String[]> correspondanceMap = new HashMap<>(Launcher.serverPlugins.size());
-        int index = 3;
+        int index = startIndex;
         for (ServerPlugin plugin : Launcher.serverPlugins) {
             int num_args_plugin = plugin.getArgCount();
             correspondanceMap.put(plugin, Arrays.copyOfRange(args, index, index+num_args_plugin));
@@ -84,8 +84,8 @@ public class Launcher {
         return correspondanceMap;
     }
 
-    public static void divideServerPluginArgs(String[] args, Function<ServerPlugin, Integer> pluginToArgCount, BiConsumer<ServerPlugin, String[]> doingFunction) {
-        int index = 3;
+    public static void divideServerPluginArgs(String[] args, int startIndex, Function<ServerPlugin, Integer> pluginToArgCount, BiConsumer<ServerPlugin, String[]> doingFunction) {
+        int index = startIndex;
         for (ServerPlugin plugin : Launcher.serverPlugins) {
             int num_args_plugin = plugin.getArgCount();
             doingFunction.accept(plugin, Arrays.copyOfRange(args, index, index+num_args_plugin));
